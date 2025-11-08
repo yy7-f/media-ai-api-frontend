@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import api from "@/lib/api";
 
 type JobStatus = "queued" | "running" | "done" | "error" | "canceled";
+
 type JobPayload = {
   id: string;
   status: JobStatus;
@@ -16,7 +17,7 @@ type JobPayload = {
   [k: string]: any;
 };
 
-export default function JobsPage() {
+function JobsPageContent() {
   const search = useSearchParams();
   const initialJobId = useMemo(() => search.get("job_id") || "", [search]);
 
@@ -51,7 +52,11 @@ export default function JobsPage() {
         }
       } catch (e: any) {
         if (cancelled) return;
-        setError(e?.response?.data?.message || e?.message || "Failed to fetch job");
+        setError(
+          e?.response?.data?.message ||
+            e?.message ||
+            "Failed to fetch job",
+        );
         // You can also stop on error if preferred:
         // setPolling(false);
       }
@@ -80,7 +85,7 @@ export default function JobsPage() {
   return (
     <main className="space-y-6">
       <section className="bg-white p-6 rounded-lg shadow-sm">
-        <h2 className="text-xl font-semibold mb-3">/jobs — Status & Results</h2>
+        <h2 className="text-xl font-semibold mb-3">/jobs — Status &amp; Results</h2>
 
         <div className="grid md:grid-cols-[1fr_auto] gap-3 items-end">
           <div className="space-y-2">
@@ -100,7 +105,9 @@ export default function JobsPage() {
                 type="number"
                 min={500}
                 value={intervalMs}
-                onChange={(e) => setIntervalMs(parseInt(e.target.value || "1500", 10))}
+                onChange={(e) =>
+                  setIntervalMs(parseInt(e.target.value || "1500", 10))
+                }
               />
             </label>
           </div>
@@ -123,18 +130,23 @@ export default function JobsPage() {
           </div>
         </div>
 
-        {error && <p className="mt-3 text-red-600 text-sm">Error: {error}</p>}
+        {error && (
+          <p className="mt-3 text-red-600 text-sm">Error: {error}</p>
+        )}
       </section>
 
       {job && (
         <section className="bg-white p-6 rounded-lg shadow-sm space-y-3">
           <div className="flex flex-wrap items-center gap-3">
             <div className="text-sm">
-              <span className="font-medium">Job:</span> <code>{job.id}</code>
+              <span className="font-medium">Job:</span>{" "}
+              <code>{job.id}</code>
             </div>
             <StatusPill status={job.status} />
             {typeof job.progress === "number" && (
-              <div className="text-sm text-gray-600">Progress: {job.progress}%</div>
+              <div className="text-sm text-gray-600">
+                Progress: {job.progress}%
+              </div>
             )}
           </div>
 
@@ -149,7 +161,8 @@ export default function JobsPage() {
               target="_blank"
               rel="noreferrer"
             >
-              Download result {job.filename ? `(${job.filename})` : ""}
+              Download result{" "}
+              {job.filename ? `(${job.filename})` : ""}
             </a>
           ) : (
             <p className="text-sm text-gray-500">
@@ -158,7 +171,9 @@ export default function JobsPage() {
           )}
 
           <details className="mt-2">
-            <summary className="cursor-pointer text-sm text-gray-600">Raw payload</summary>
+            <summary className="cursor-pointer text-sm text-gray-600">
+              Raw payload
+            </summary>
             <pre className="mt-2 text-xs bg-gray-50 p-3 overflow-auto max-h-80">
               {JSON.stringify(job, null, 2)}
             </pre>
@@ -185,5 +200,13 @@ function StatusPill({ status }: { status?: string }) {
     <span className={`text-xs px-2 py-1 rounded ${cls}`}>
       {status || "unknown"}
     </span>
+  );
+}
+
+export default function JobsPage() {
+  return (
+    <Suspense fallback={<main className="p-6">Loading jobs...</main>}>
+      <JobsPageContent />
+    </Suspense>
   );
 }
