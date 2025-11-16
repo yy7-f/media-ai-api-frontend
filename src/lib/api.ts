@@ -9,26 +9,30 @@ const api = axios.create({
 });
 
 // Attach tokens / API key on every request
-api.interceptors.request.use(async (config) => {
-  const session = await getSession();
+api.interceptors.request.use(
+  async (config: any) => {
+    const session = await getSession();
 
-  // Start from existing headers, but force a plain object for TS
-  const headers: Record<string, string> = {
-    ...(config.headers as Record<string, string> | undefined),
-  };
+    // Ensure headers exists as a plain object
+    if (!config.headers) {
+      config.headers = {};
+    }
 
-  // JWT from NextAuth (if logged in)
-  if (session?.accessToken) {
-    headers.Authorization = `Bearer ${session.accessToken}`;
+    // JWT from NextAuth (if logged in)
+    if (session?.accessToken) {
+      config.headers["Authorization"] = `Bearer ${session.accessToken}`;
+    }
+
+    // Optional static API key
+    if (process.env.NEXT_PUBLIC_API_KEY) {
+      config.headers["API-Key"] = process.env.NEXT_PUBLIC_API_KEY;
+    }
+
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-
-  // Optional static API key
-  if (process.env.NEXT_PUBLIC_API_KEY) {
-    headers["API-Key"] = process.env.NEXT_PUBLIC_API_KEY;
-  }
-
-  config.headers = headers;
-  return config;
-});
+);
 
 export default api;
