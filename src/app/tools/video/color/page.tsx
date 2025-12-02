@@ -7,6 +7,7 @@ type ApiRes = {
   status?: string;
   result_path?: string;
   filename?: string;
+  gcs_url?: string;          // ⭐ GCS URL from backend
   message?: string;
   diagnostics?: any;
   [k: string]: any;
@@ -66,7 +67,17 @@ export default function ColorTool() {
       setRes(r.data);
     } catch (e: any) {
       if (e.response) {
-        setError(`HTTP ${e.response.status}: ${JSON.stringify(e.response.data)}`);
+        const status = e.response.status;
+        if (status === 401) {
+          setError("Authentication required. Please log in to continue.");
+          // Redirect to login page
+          window.location.href = "/login";
+          return;
+        } else if (status === 403) {
+          setError("Access denied. You don't have permission to perform this action.");
+        } else {
+          setError(`HTTP ${status}: ${JSON.stringify(e.response.data)}`);
+        }
       } else if (e.request) {
         setError(`No response: ${e.message}`);
       } else {
@@ -77,13 +88,22 @@ export default function ColorTool() {
     }
   }
 
+  const downloadUrl =
+    (res?.gcs_url as string | undefined) ||
+    (res?.result_path as string | undefined) ||
+    "";
+
   return (
     <main className="space-y-6">
       <section className="bg-white p-6 rounded-lg shadow-sm">
         <h2 className="text-xl font-semibold mb-3">/video/effects/color</h2>
 
         <div className="mb-4">
-          <input type="file" accept="video/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          <input
+            type="file"
+            accept="video/*"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          />
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
@@ -96,12 +116,16 @@ export default function ColorTool() {
                 onChange={(e) => setMode(e.target.value)}
               >
                 {MODES.map((m) => (
-                  <option key={m} value={m}>{m}</option>
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
                 ))}
               </select>
             </label>
 
-            {(mode === "brightness" || mode === "contrast" || mode === "saturation") && (
+            {(mode === "brightness" ||
+              mode === "contrast" ||
+              mode === "saturation") && (
               <label className="block">
                 <span className="text-sm">Value</span>
                 <input
@@ -157,7 +181,11 @@ export default function ColorTool() {
             </div>
 
             <label className="inline-flex items-center gap-2">
-              <input type="checkbox" checked={copyAudio} onChange={(e) => setCopyAudio(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={copyAudio}
+                onChange={(e) => setCopyAudio(e.target.checked)}
+              />
               <span className="text-sm">Copy original audio</span>
             </label>
           </div>
@@ -171,22 +199,37 @@ export default function ColorTool() {
           >
             {loading ? "Processing..." : "Apply Color"}
           </button>
-          {loading && <div className="text-sm text-gray-600">Uploading… {progress}%</div>}
+          {loading && (
+            <div className="text-sm text-gray-600">
+              Uploading… {progress}%
+            </div>
+          )}
         </div>
 
-        {error && <p className="mt-3 text-red-600 text-sm">Error: {error}</p>}
+        {error && (
+          <p className="mt-3 text-red-600 text-sm">Error: {error}</p>
+        )}
       </section>
 
       {res && (
         <section className="bg-white p-6 rounded-lg shadow-sm">
           <h3 className="font-medium mb-2">Result</h3>
-          {res.result_path ? (
-            <a href={res.result_path} className="text-blue-600 underline" target="_blank" rel="noreferrer">
+
+          {downloadUrl ? (
+            <a
+              href={downloadUrl}
+              className="text-blue-600 underline"
+              target="_blank"
+              rel="noreferrer"
+            >
               Open result ({res.filename ?? "output.mp4"})
             </a>
           ) : (
-            <p className="text-sm text-gray-500">No <code>result_path</code> returned.</p>
+            <p className="text-sm text-gray-500">
+              No <code>gcs_url</code> or <code>result_path</code> returned.
+            </p>
           )}
+
           <pre className="mt-3 text-xs bg-gray-100 p-3 overflow-auto max-h-80">
             {JSON.stringify(res, null, 2)}
           </pre>

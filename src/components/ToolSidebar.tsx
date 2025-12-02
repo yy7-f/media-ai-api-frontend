@@ -2,25 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-const TOOLS: { href: string; label: string }[] = [
-  { href: "/tools/video/trim",            label: "✂️ Trim" },
-  { href: "/tools/video/crop",            label: "🖼️ Crop" },
-  { href: "/tools/color",           label: "🎨 Color" },
-  { href: "/tools/transcribe",      label: "🗣️ Transcribe" },
-  { href: "/tools/overlay",         label: "📝 Text Overlay" },
-  { href: "/tools/inpaint",         label: "🧠 Inpaint" },
-  { href: "/tools/shuffle",         label: "🔀 Shuffle" },
-  { href: "/tools/concat",          label: "➕ Concat" },
-  { href: "/tools/captions-burn",   label: "💬 Captions Burn-in" },
-  { href: "/tools/denoise",         label: "🔉 Audio Denoise" },
-  { href: "/tools/jobs",            label: "📊 Jobs" },
-  { href: "/tools/video/rotate", label: "Rotate" },
-  { href: "/tools/video/speed",  label: "Speed"  },
-  { href: "/tools/video/stabilize", label: "Stabilize (OpenCV)" },
-    { href: "/tools/audio-normalize", label: "Audio Normalize" },
-    { href: "/tools/audio-mix", label: "Audio Mix" },
-];
+import { TOOLS } from "@/config/tools";
 
 export default function ToolSidebar() {
   const pathname = usePathname();
@@ -32,20 +14,35 @@ export default function ToolSidebar() {
           <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase">
             Tools
           </div>
-          <ul className="mt-1">
-            {TOOLS.map((t) => {
-              const active = pathname === t.href;
+          <ul className="mt-1 space-y-1">
+            {TOOLS.filter((t) => t.showInSidebar !== false).map((t) => {
+              const isLive = t.status === "live";
+
+              // Coming soon: greyed out, no link
+              if (!isLive) {
+                return (
+                  <li key={t.id}>
+                    <div className="block rounded-lg px-3 py-2 text-sm text-gray-400 cursor-not-allowed border border-dashed border-gray-200 bg-gray-50">
+                      {t.sidebarLabel}{" "}
+                      <span className="text-[10px] ml-1">(soon)</span>
+                    </div>
+                  </li>
+                );
+              }
+
+              const active = pathname === t.slug;
+
               return (
-                <li key={t.href}>
+                <li key={t.id}>
                   <Link
-                    href={t.href}
-                    className={`block rounded-lg px-3 py-2 text-sm transition
-                      ${active
+                    href={t.slug}
+                    className={`block rounded-lg px-3 py-2 text-sm transition ${
+                      active
                         ? "bg-gray-900 text-white"
                         : "text-gray-700 hover:bg-gray-100"
-                      }`}
+                    }`}
                   >
-                    {t.label}
+                    {t.sidebarLabel}
                   </Link>
                 </li>
               );
@@ -53,7 +50,6 @@ export default function ToolSidebar() {
           </ul>
         </nav>
 
-        {/* Optional “Back to Home” */}
         <div className="mt-3">
           <Link
             href="/"

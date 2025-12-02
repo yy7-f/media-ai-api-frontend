@@ -7,10 +7,36 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { signOut, useSession } from "next-auth/react";
 
-const LINKS = [
+type NavLink = {
+  href: string;
+  label: string;
+  comingSoon?: boolean;
+  disabled?: boolean;
+};
+
+const LINKS: NavLink[] = [
   { href: "/", label: "Home" },
-  // main tools entry – points to first tool page
-  { href: "/tools/video/trim", label: "Tools" },
+  { href: "/tools", label: "Tools" },
+  { href: "/dashboard", label: "Dashboard" },
+
+
+  // Example: future tools (coming soon)
+  // You can add or remove these as you like.
+  // {
+  //   href: "/tools/audio/vocal-remover",
+  //   label: "Vocal Remover",
+  //   comingSoon: true,
+  //   disabled: true,
+  // },
+  // {
+  //   href: "/tools/video/inpaint",
+  //   label: "Inpaint (Lama Cleaner)",
+  //   comingSoon: true,
+  //   disabled: true,
+  // },
+
+  { href: "/pricing", label: "Pricing" },
+  { href: "/contact", label: "Contact" },
 ];
 
 export default function SiteHeader() {
@@ -56,6 +82,20 @@ export default function SiteHeader() {
     return () => clearInterval(interval);
   }, []);
 
+  const renderNavLabel = (link: NavLink) => {
+    if (link.comingSoon) {
+      return (
+        <span className="flex items-center gap-1">
+          <span>{link.label}</span>
+          <span className="text-[10px] uppercase tracking-wide rounded-full px-2 py-0.5 bg-gray-200 text-gray-600">
+            Coming Soon
+          </span>
+        </span>
+      );
+    }
+    return link.label;
+  };
+
   return (
     <header
       className={[
@@ -78,7 +118,7 @@ export default function SiteHeader() {
           </button>
 
           <Link href="/" className="text-lg font-semibold">
-            Media Tools
+            Media AI Tools
           </Link>
 
           {/* ✅ Backend status indicator */}
@@ -121,17 +161,37 @@ export default function SiteHeader() {
               const active =
                 pathname === l.href ||
                 (l.href.startsWith("/tools") && pathname.startsWith("/tools"));
+
+              const baseClasses =
+                "rounded px-3 py-2 text-sm transition whitespace-nowrap";
+              const activeClasses = active
+                ? "bg-gray-900 text-white"
+                : "text-gray-700 hover:bg-gray-100";
+              const disabledClasses =
+                "text-gray-400 cursor-not-allowed bg-transparent hover:bg-transparent";
+
+              if (l.disabled) {
+                // "Coming Soon" / disabled
+                return (
+                  <button
+                    key={l.href + l.label}
+                    type="button"
+                    className={`${baseClasses} ${disabledClasses}`}
+                    title={l.comingSoon ? "Coming soon" : "Not available yet"}
+                    disabled
+                  >
+                    {renderNavLabel(l)}
+                  </button>
+                );
+              }
+
               return (
                 <Link
                   key={l.href}
                   href={l.href}
-                  className={`rounded px-3 py-2 text-sm transition ${
-                    active
-                      ? "bg-gray-900 text-white"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
+                  className={`${baseClasses} ${activeClasses}`}
                 >
-                  {l.label}
+                  {renderNavLabel(l)}
                 </Link>
               );
             })}
@@ -154,7 +214,7 @@ export default function SiteHeader() {
 
             {status === "authenticated" && (
               <>
-                <span className="hidden sm:inline text-gray-700 max-w-[200px] truncate">
+                <span className="hidden sm:inline text-gray-700 max-w-[220px] truncate">
                   {session?.user?.email}
                   {((session?.user as any)?.plan ||
                     (session as any)?.plan) && (
@@ -184,23 +244,42 @@ export default function SiteHeader() {
               const active =
                 pathname === l.href ||
                 (l.href.startsWith("/tools") && pathname.startsWith("/tools"));
+
+              const baseClasses =
+                "block rounded px-3 py-2 text-sm whitespace-nowrap";
+              const activeClasses = active
+                ? "bg-gray-900 text-white"
+                : "text-gray-700 hover:bg-gray-100";
+              const disabledClasses =
+                "text-gray-400 cursor-not-allowed bg-transparent hover:bg-transparent";
+
+              if (l.disabled) {
+                return (
+                  <button
+                    key={l.href + l.label}
+                    type="button"
+                    className={`${baseClasses} ${disabledClasses}`}
+                    title={l.comingSoon ? "Coming soon" : "Not available yet"}
+                    disabled
+                  >
+                    {renderNavLabel(l)}
+                  </button>
+                );
+              }
+
               return (
                 <Link
                   key={l.href}
                   href={l.href}
                   onClick={() => setOpen(false)}
-                  className={`block rounded px-3 py-2 text-sm ${
-                    active
-                      ? "bg-gray-900 text-white"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
+                  className={`${baseClasses} ${activeClasses}`}
                 >
-                  {l.label}
+                  {renderNavLabel(l)}
                 </Link>
               );
             })}
 
-            {/* Optional: mobile auth buttons */}
+            {/* Mobile auth buttons */}
             <div className="mt-2 border-t pt-2 flex items-center justify-between">
               {status === "unauthenticated" && (
                 <button

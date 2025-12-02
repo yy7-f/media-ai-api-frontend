@@ -19,7 +19,6 @@ const handler = NextAuth({
           return null;
         }
 
-        // Normalize base and build login URL
         const baseUrl = base.replace(/\/$/, "");
         const url = `${baseUrl}/auth/login/`;
 
@@ -52,7 +51,6 @@ const handler = NextAuth({
             return null;
           }
 
-          // This flows into jwt() as `user`
           return {
             id: data.user?.id ?? data.email,
             email: data.email,
@@ -78,11 +76,9 @@ const handler = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      // attach to root session (optional but handy)
       (session as any).accessToken = token.accessToken;
       (session as any).plan = token.plan;
 
-      // attach to session.user for easy access in UI
       if (session.user) {
         (session.user as any).id = token.id;
         (session.user as any).plan = token.plan;
@@ -90,6 +86,9 @@ const handler = NextAuth({
 
       return session;
     },
+  },
+  pages: {
+    signIn: "/login", // optional but nice
   },
 });
 

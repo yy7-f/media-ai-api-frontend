@@ -1,7 +1,11 @@
+// src/app/tools/video/crop/page.tsx
 "use client";
 
 import { useState } from "react";
 import api from "@/lib/api";
+
+const API_BASE =
+  (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, "");
 
 type ApiResponse = {
   status?: string;
@@ -9,13 +13,21 @@ type ApiResponse = {
   filename?: string;
   message?: string;
   diagnostics?: any;
+  gcs_uri?: string;
+  api_result_url?: string;
   [k: string]: any;
 };
 
 const POS_OPTS = [
   "center",
-  "top","bottom","left","right",
-  "top-left","top-right","bottom-left","bottom-right",
+  "top",
+  "bottom",
+  "left",
+  "right",
+  "top-left",
+  "top-right",
+  "bottom-left",
+  "bottom-right",
 ];
 
 export default function CropTool() {
@@ -35,6 +47,7 @@ export default function CropTool() {
   const [progress, setProgress] = useState(0);
   const [res, setRes] = useState<ApiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 
   const isManual = x && y && w && h;
 
@@ -42,7 +55,13 @@ export default function CropTool() {
     if (!file) return;
     setError(null);
     setRes(null);
+    setDownloadUrl(null);
     setProgress(0);
+
+    if (!API_BASE) {
+      setError("NEXT_PUBLIC_API_BASE is not configured.");
+      return;
+    }
 
     const form = new FormData();
     form.append("video", file);
@@ -66,10 +85,40 @@ export default function CropTool() {
           setProgress(Math.round((e.loaded / e.total) * 100));
         },
       });
-      setRes(r.data);
+
+      const data: ApiResponse = r.data;
+      setRes(data);
+
+      // 🔗 decide final download URL
+      let url: string | null = null;
+      if (data.gcs_uri) {
+        url = data.gcs_uri;
+      } else if (data.api_result_url) {
+        url = `${API_BASE}${data.api_result_url}`;
+      }
+
+      if (!url) {
+        setError(
+          "Crop succeeded but no download URL was returned (no gcs_uri/api_result_url)."
+        );
+      } else {
+        setDownloadUrl(url);
+      }
     } catch (e: any) {
       if (e.response) {
-        setError(`HTTP ${e.response.status}: ${JSON.stringify(e.response.data)}`);
+        const status = e.response.status;
+        if (status === 401) {
+          setError("Authentication required. Please log in to continue.");
+          // Redirect to login page
+          window.location.href = "/login";
+          return;
+        } else if (status === 403) {
+          setError("Access denied. You don't have permission to perform this action.");
+        } else {
+          setError(
+            `HTTP ${status}: ${JSON.stringify(e.response.data)}`
+          );
+        }
       } else if (e.request) {
         setError(`No response: ${e.message}`);
         console.error("No response", e.request);
@@ -82,7 +131,10 @@ export default function CropTool() {
   }
 
   function clearManual() {
-    setX(""); setY(""); setW(""); setH("");
+    setX("");
+    setY("");
+    setW("");
+    setH("");
   }
 
   return (
@@ -136,7 +188,8 @@ export default function CropTool() {
               </button>
             </div>
             <p className="text-xs text-gray-500 mt-2">
-              If all four values are provided, manual crop is used. Otherwise, the aspect mode below will be used.
+              If all four values are provided, manual crop is used. Otherwise,
+              the aspect mode below will be used.
             </p>
           </div>
 
@@ -156,7 +209,9 @@ export default function CropTool() {
                 onChange={(e) => setMode(e.target.value)}
               >
                 {POS_OPTS.map((m) => (
-                  <option key={m} value={m}>{m}</option>
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
                 ))}
               </select>
             </div>
@@ -174,18 +229,25 @@ export default function CropTool() {
           >
             {loading ? "Processing..." : "Crop"}
           </button>
-          {loading && <div className="text-sm text-gray-600">Uploading… {progress}%</div>}
+          {loading && (
+            <div className="text-sm text-gray-600">
+              Uploading… {progress}%
+            </div>
+          )}
         </div>
 
-        {error && <p className="mt-3 text-red-600 text-sm">Error: {error}</p>}
+        {error && (
+          <p className="mt-3 text-red-600 text-sm">Error: {error}</p>
+        )}
       </section>
 
       {res && (
         <section className="bg-white p-6 rounded-lg shadow-sm">
           <h3 className="font-medium mb-2">Result</h3>
-          {res.result_path ? (
+
+          {downloadUrl ? (
             <a
-              href={res.result_path}
+              href={downloadUrl}
               className="text-blue-600 underline"
               target="_blank"
               rel="noreferrer"
@@ -194,9 +256,10 @@ export default function CropTool() {
             </a>
           ) : (
             <p className="text-sm text-gray-500">
-              No <code>result_path</code> returned.
+              Crop completed but no downloadable URL was generated.
             </p>
           )}
+
           <pre className="mt-3 text-xs bg-gray-100 p-3 overflow-auto max-h-80">
             {JSON.stringify(res, null, 2)}
           </pre>

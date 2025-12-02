@@ -52,11 +52,28 @@ function JobsPageContent() {
         }
       } catch (e: any) {
         if (cancelled) return;
-        setError(
-          e?.response?.data?.message ||
+        if (e.response) {
+          const status = e.response.status;
+          if (status === 401) {
+            setError("Authentication required. Please log in to continue.");
+            // Redirect to login page
+            window.location.href = "/login";
+            return;
+          } else if (status === 403) {
+            setError("Access denied. You don't have permission to view this job.");
+          } else {
+            setError(
+              e?.response?.data?.message ||
+                `HTTP ${status}` ||
+                "Failed to fetch job",
+            );
+          }
+        } else {
+          setError(
             e?.message ||
             "Failed to fetch job",
-        );
+          );
+        }
         // You can also stop on error if preferred:
         // setPolling(false);
       }

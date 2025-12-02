@@ -67,9 +67,27 @@ export default function CaptionsTranslatePage() {
         }
       }
     } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || "Request failed";
-      setErr(String(msg));
-      toast.error(`Error: ${msg}`);
+      if (e.response) {
+        const status = e.response.status;
+        if (status === 401) {
+          setErr("Authentication required. Please log in to continue.");
+          toast.error("Authentication required. Please log in to continue.");
+          // Redirect to login page
+          window.location.href = "/login";
+          return;
+        } else if (status === 403) {
+          setErr("Access denied. You don't have permission to perform this action.");
+          toast.error("Access denied. You don't have permission to perform this action.");
+        } else {
+          const msg = e?.response?.data?.message || `HTTP ${status}`;
+          setErr(String(msg));
+          toast.error(`Error: ${msg}`);
+        }
+      } else {
+        const msg = e?.message || "Request failed";
+        setErr(String(msg));
+        toast.error(`Error: ${msg}`);
+      }
     } finally {
       setLoading(false);
     }

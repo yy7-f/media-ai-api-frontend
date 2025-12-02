@@ -58,9 +58,23 @@ export default function InpaintTool() {
       });
       setRes(r.data);
     } catch (e: any) {
-      if (e.response) setError(`HTTP ${e.response.status}: ${JSON.stringify(e.response.data)}`);
-      else if (e.request) setError(`No response: ${e.message}`);
-      else setError(`Error: ${e.message}`);
+      if (e.response) {
+        const status = e.response.status;
+        if (status === 401) {
+          setError("Authentication required. Please log in to continue.");
+          // Redirect to login page
+          window.location.href = "/login";
+          return;
+        } else if (status === 403) {
+          setError("Access denied. You don't have permission to perform this action.");
+        } else {
+          setError(`HTTP ${status}: ${JSON.stringify(e.response.data)}`);
+        }
+      } else if (e.request) {
+        setError(`No response: ${e.message}`);
+      } else {
+        setError(`Error: ${e.message}`);
+      }
     } finally {
       setLoading(false);
     }
