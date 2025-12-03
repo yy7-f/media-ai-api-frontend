@@ -2,13 +2,16 @@
 import { LoginForm } from "./LoginForm";
 
 type LoginPageProps = {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{
+    [key: string]: string | string[] | undefined;
+  }>;
 };
 
-export default function LoginPage({ searchParams }: LoginPageProps) {
-  const registeredParam = searchParams.registered;
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  // ✅ Next.js 15: searchParams is a Promise, so await it
+  const resolved = await searchParams;
+  const registeredParam = resolved.registered;
 
-  // treat ?registered=1 (or any truthy value) as "just registered"
   const registeredValue = Array.isArray(registeredParam)
     ? registeredParam[0]
     : registeredParam;
