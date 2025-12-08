@@ -4,8 +4,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import axios from "axios";
 import { signOut, useSession } from "next-auth/react";
+import api from "@/lib/api"; // <--- use our configured axios client
 
 type NavLink = {
   href: string;
@@ -18,23 +18,6 @@ const LINKS: NavLink[] = [
   { href: "/", label: "Home" },
   { href: "/tools", label: "Tools" },
   { href: "/dashboard", label: "Dashboard" },
-
-
-  // Example: future tools (coming soon)
-  // You can add or remove these as you like.
-  // {
-  //   href: "/tools/audio/vocal-remover",
-  //   label: "Vocal Remover",
-  //   comingSoon: true,
-  //   disabled: true,
-  // },
-  // {
-  //   href: "/tools/video/inpaint",
-  //   label: "Inpaint (Lama Cleaner)",
-  //   comingSoon: true,
-  //   disabled: true,
-  // },
-
   { href: "/pricing", label: "Pricing" },
   { href: "/contact", label: "Contact" },
 ];
@@ -61,16 +44,18 @@ export default function SiteHeader() {
   useEffect(() => {
     async function checkAPI() {
       try {
-        const base = process.env.NEXT_PUBLIC_API_BASE;
-        if (!base) {
+        if (!process.env.NEXT_PUBLIC_API_BASE) {
           setApiStatus("fail");
           return;
         }
 
-        const baseUrl = base.replace(/\/$/, "");
-        const res = await axios.get(`${baseUrl}/health/`);
-        if (res.status === 200) setApiStatus("ok");
-        else setApiStatus("fail");
+        // use our axios client so API-Key is attached
+        const res = await api.get("/health/");
+        if (res.status === 200) {
+          setApiStatus("ok");
+        } else {
+          setApiStatus("fail");
+        }
       } catch (err) {
         console.error("Health check error:", err);
         setApiStatus("fail");

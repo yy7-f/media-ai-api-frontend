@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
 
 export default function VideoTrimPage() {
   const { data: session, status } = useSession();
@@ -37,6 +38,11 @@ export default function VideoTrimPage() {
       return;
     }
 
+    if (!API_KEY) {
+      setError("API key is not configured.");
+      return;
+    }
+
     if (!accessToken) {
       setError("Your session seems to have expired. Please sign in again.");
       return;
@@ -57,8 +63,11 @@ export default function VideoTrimPage() {
       const res = await fetch(`${base}/video/trim/`, {
         method: "POST",
         headers: {
+          // for your Flask auth / freemium pipeline
           Authorization: `Bearer ${accessToken}`,
-          // no Content-Type; browser sets boundary for FormData
+          // for api_key_required on Cloud Run
+          "API-Key": API_KEY,
+          // do NOT set Content-Type here (FormData handles it)
         },
         body: formData,
       });
@@ -74,9 +83,6 @@ export default function VideoTrimPage() {
       if (!res.ok) {
         // ----- limit-aware error handling -----
         if (res.status === 401) {
-          // Two possibilities:
-          // - backend says "login_required" (guest limit)
-          // - or token/session invalid
           if (data?.error === "login_required") {
             setError(
               data?.message ||
@@ -92,7 +98,6 @@ export default function VideoTrimPage() {
         }
 
         if (res.status === 403) {
-          // freemium_limited over free tier usage
           setError(
             data?.message ||
               "You’ve reached today’s free usage limit for this tool. Please try again tomorrow."
@@ -100,7 +105,6 @@ export default function VideoTrimPage() {
           return;
         }
 
-        // generic error fallback
         setError(
           data?.message || `Trim failed with status ${res.status}`
         );
