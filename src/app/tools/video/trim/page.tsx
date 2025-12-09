@@ -1,9 +1,10 @@
+// app/tools/video/trim/page.tsx
 "use client";
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
+const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, "");
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
 
 export default function VideoTrimPage() {
@@ -20,7 +21,7 @@ export default function VideoTrimPage() {
   const [error, setError] = useState<string | null>(null);
 
   const isAuthed = status === "authenticated";
-  const accessToken = (session as any)?.accessToken;
+  // Note: we no longer use session.accessToken for this endpoint
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,31 +44,20 @@ export default function VideoTrimPage() {
       return;
     }
 
-    if (!accessToken) {
-      setError("Your session seems to have expired. Please sign in again.");
-      return;
-    }
-
     try {
       setIsProcessing(true);
 
       const formData = new FormData();
       formData.append("video", file);
-
       if (start) formData.append("start", start);
       if (end) formData.append("end", end);
       formData.append("precise", precise ? "true" : "false");
 
-      const base = API_BASE.replace(/\/$/, "");
-
-      const res = await fetch(`${base}/video/trim/`, {
+      const res = await fetch(`${API_BASE}/video/trim/`, {
         method: "POST",
         headers: {
-          // for your Flask auth / freemium pipeline
-          Authorization: `Bearer ${accessToken}`,
-          // for api_key_required on Cloud Run
+          // ✅ only API key; NO Content-Type for FormData
           "API-Key": API_KEY,
-          // do NOT set Content-Type here (FormData handles it)
         },
         body: formData,
       });
@@ -76,23 +66,19 @@ export default function VideoTrimPage() {
       try {
         data = await res.json();
       } catch {
-        // ignore JSON parse error, will handle via status code
+        // ignore JSON parse error; handled by status code below
       }
       setBackendResponse(data);
 
       if (!res.ok) {
-        // ----- limit-aware error handling -----
         if (res.status === 401) {
           if (data?.error === "login_required") {
             setError(
               data?.message ||
-                "This tool is only available after signing in. Please create an account or log in."
+                "This tool is only available after signing in. Please create an account or log in.",
             );
           } else {
-            setError(
-              data?.message ||
-                "Your session may have expired. Please sign in again."
-            );
+            setError(data?.message || "Unauthorized access.");
           }
           return;
         }
@@ -100,23 +86,20 @@ export default function VideoTrimPage() {
         if (res.status === 403) {
           setError(
             data?.message ||
-              "You’ve reached today’s free usage limit for this tool. Please try again tomorrow."
+              "You’ve reached today’s free usage limit for this tool. Please try again tomorrow.",
           );
           return;
         }
 
-        setError(
-          data?.message || `Trim failed with status ${res.status}`
-        );
+        setError(data?.message || `Trim failed with status ${res.status}`);
         return;
       }
 
-      // ----- success path -----
       const diagnostics = data?.diagnostics || {};
       const resultUrl: string | null =
         (diagnostics.gcs_url as string | null) ||
         (data?.gcs_uri as string | null) ||
-        (data?.api_result_url ? `${base}${data.api_result_url}` : null);
+        (data?.api_result_url ? `${API_BASE}${data.api_result_url}` : null);
 
       if (!resultUrl) {
         setError("Trim succeeded but no download URL was returned.");
@@ -124,7 +107,7 @@ export default function VideoTrimPage() {
       }
 
       setDownloadUrl(resultUrl);
-    } catch (err: any) {
+    } catch (err) {
       console.error("Trim request error:", err);
       setError("Unexpected error while calling trim API.");
     } finally {
@@ -133,9 +116,7 @@ export default function VideoTrimPage() {
   }
 
   if (status === "loading") {
-    return (
-      <div className="text-sm text-gray-500">Checking your session…</div>
-    );
+    return <div className="text-sm text-gray-500">Checking your session…</div>;
   }
 
   if (!isAuthed) {
@@ -260,11 +241,7 @@ export default function VideoTrimPage() {
       <section className="space-y-2">
         <h2 className="text-sm font-semibold text-gray-800">Result</h2>
         <div className="rounded-lg border bg-white p-4 text-sm text-gray-700 space-y-2">
-          {error && (
-            <p className="text-red-600 text-sm">
-              Error: {error}
-            </p>
-          )}
+          {error && <p className="text-red-600 text-sm">Error: {error}</p>}
 
           {!error && !downloadUrl && !isProcessing && (
             <p className="text-xs text-gray-500">
@@ -295,9 +272,7 @@ export default function VideoTrimPage() {
 
           {backendResponse && (
             <details className="mt-2 text-xs text-gray-500">
-              <summary className="cursor-pointer">
-                Diagnostics (debug)
-              </summary>
+              <summary className="cursor-pointer">Diagnostics (debug)</summary>
               <pre className="mt-1 whitespace-pre-wrap break-all">
                 {JSON.stringify(backendResponse, null, 2)}
               </pre>

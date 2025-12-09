@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
-import api from "@/lib/api"; // <--- use our configured axios client
+import api from "@/lib/api";
 
 type NavLink = {
   href: string;
@@ -32,7 +32,6 @@ export default function SiteHeader() {
   const [apiStatus, setApiStatus] =
     useState<"ok" | "fail" | "checking">("checking");
 
-  // scroll shadow
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 4);
     onScroll();
@@ -40,7 +39,7 @@ export default function SiteHeader() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // 🔍 Health check ping -> Flask /health/
+  // health check using axios client (includes API-Key)
   useEffect(() => {
     async function checkAPI() {
       try {
@@ -48,14 +47,8 @@ export default function SiteHeader() {
           setApiStatus("fail");
           return;
         }
-
-        // use our axios client so API-Key is attached
         const res = await api.get("/health/");
-        if (res.status === 200) {
-          setApiStatus("ok");
-        } else {
-          setApiStatus("fail");
-        }
+        setApiStatus(res.status === 200 ? "ok" : "fail");
       } catch (err) {
         console.error("Health check error:", err);
         setApiStatus("fail");
@@ -91,9 +84,8 @@ export default function SiteHeader() {
       ].join(" ")}
     >
       <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
-        {/* Left side: logo + API status */}
+        {/* Left: logo + API status */}
         <div className="flex items-center gap-3">
-          {/* mobile menu button */}
           <button
             className="md:hidden rounded border px-2 py-1 text-sm"
             onClick={() => setOpen((v) => !v)}
@@ -106,7 +98,6 @@ export default function SiteHeader() {
             Media AI Tools
           </Link>
 
-          {/* ✅ Backend status indicator */}
           <div
             className="ml-3 flex items-center gap-2 text-sm"
             title={
@@ -138,9 +129,8 @@ export default function SiteHeader() {
           </div>
         </div>
 
-        {/* Right side: nav + auth */}
+        {/* Right: nav + auth */}
         <div className="flex items-center gap-4">
-          {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-2">
             {LINKS.map((l) => {
               const active =
@@ -156,7 +146,6 @@ export default function SiteHeader() {
                 "text-gray-400 cursor-not-allowed bg-transparent hover:bg-transparent";
 
               if (l.disabled) {
-                // "Coming Soon" / disabled
                 return (
                   <button
                     key={l.href + l.label}
@@ -182,7 +171,6 @@ export default function SiteHeader() {
             })}
           </nav>
 
-          {/* Auth UI */}
           <div className="flex items-center gap-2 text-sm">
             {status === "loading" && (
               <span className="text-gray-500">Checking user…</span>
@@ -264,7 +252,6 @@ export default function SiteHeader() {
               );
             })}
 
-            {/* Mobile auth buttons */}
             <div className="mt-2 border-t pt-2 flex items-center justify-between">
               {status === "unauthenticated" && (
                 <button

@@ -4,14 +4,16 @@
 import axios from "axios";
 import { getSession } from "next-auth/react";
 
+const baseURL = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, "");
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE, // e.g. https://...run.app/api/v1
-  timeout: 10 * 60 * 1000, // 10 minutes
+  baseURL,
+  timeout: 10 * 60 * 1000,
   maxBodyLength: Infinity,
   maxContentLength: Infinity,
 });
 
-// Attach tokens / API key on every request
+// Attach API key + (optional) bearer token on every request
 api.interceptors.request.use(
   async (config: any) => {
     const session = await getSession();
@@ -20,19 +22,19 @@ api.interceptors.request.use(
       config.headers = {};
     }
 
-    // NextAuth accessToken → Authorization header (if you need it later)
+    // optional: for endpoints that still use JWT
     if (session?.accessToken) {
       config.headers["Authorization"] = `Bearer ${session.accessToken}`;
     }
 
-    // API key for Cloud Run
+    // required: API key header for Cloud Run
     if (process.env.NEXT_PUBLIC_API_KEY) {
       config.headers["API-Key"] = process.env.NEXT_PUBLIC_API_KEY;
     }
 
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 export default api;
