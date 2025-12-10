@@ -2,6 +2,11 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
+const API_BASE =
+  process.env.API_BASE || process.env.NEXT_PUBLIC_API_BASE || "";
+const API_KEY =
+  process.env.API_KEY || process.env.NEXT_PUBLIC_API_KEY || "";
+
 const handler = NextAuth({
   providers: [
     Credentials({
@@ -11,21 +16,31 @@ const handler = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
-
-        const base = process.env.NEXT_PUBLIC_API_BASE;
-        if (!base) {
-          console.error("NEXT_PUBLIC_API_BASE is not set");
+        if (!credentials?.email || !credentials?.password) {
+          console.error("Missing email/password in credentials");
           return null;
         }
 
-        const baseUrl = base.replace(/\/$/, "");
+        if (!API_BASE) {
+          console.error("API_BASE / NEXT_PUBLIC_API_BASE is not set");
+          return null;
+        }
+
+        const baseUrl = API_BASE.replace(/\/$/, "");
         const url = `${baseUrl}/auth/login/`;
 
         try {
+          const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+          };
+          if (API_KEY) {
+            // change header name if your backend expects something else
+            headers["x-api-key"] = API_KEY;
+          }
+
           const res = await fetch(url, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers,
             body: JSON.stringify({
               email: credentials.email,
               password: credentials.password,
@@ -42,20 +57,52 @@ const handler = NextAuth({
           console.log("Auth login status:", res.status, "data:", data);
 
           if (!res.ok) {
-            console.error("Login failed:", res.status, data);
+            // 401 is “wrong credentials”, others are more likely config issues
+            if (res.status === 401) {
+              console.error("Invalid email or password");
+            } else {
+              console.error("Login failed:", res.status, data);
+            }
             return null;
           }
 
-          if (!data?.token || !data?.email) {
-            console.error("Login OK but missing token/email in response");
+          // Try to support multiple possible response shapes:
+          const token =
+            data?.token ??
+            data?.access_token ??
+            data?.accessToken ??
+            data?.jwt ??
+            null;
+
+          const email =
+            data?.email ??
+            data?.user?.email ??
+            credentials.email;
+
+          const userId =
+            data?.user?.id ??
+            data?.id ??
+            email;
+
+          const plan =
+            data?.user?.plan ??
+            data?.plan ??
+            "free";
+
+          if (!token || !email) {
+            console.error(
+              "Login OK but missing token/email in response",
+              data
+            );
             return null;
           }
 
+          // This object ends up in `user` inside jwt() callback
           return {
-            id: data.user?.id ?? data.email,
-            email: data.email,
-            token: data.token,
-            plan: data.user?.plan ?? "free",
+            id: userId,
+            email,
+            token,
+            plan,
           };
         } catch (err) {
           console.error("authorize() error:", err);
@@ -88,7 +135,7 @@ const handler = NextAuth({
     },
   },
   pages: {
-    signIn: "/login", // optional but nice
+    signIn: "/login",
   },
 });
 
